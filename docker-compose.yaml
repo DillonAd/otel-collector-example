@@ -1,0 +1,67 @@
+version: "3.8"
+services:
+
+  custom_service:
+    image: custom_service:latest
+    build: .
+    develop:
+      watch:
+        - action: rebuild
+          path: ./service
+    container_name: custom_service
+    environment:
+      - OTEL_COLLECTOR_ENDPOINT=otel_collector:4317
+    networks:
+      - otel-example
+
+  otel_collector:
+    container_name: otel_collector
+    image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.92.0
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:Z
+    ports:
+      - "4317:4317"
+      - "9464:9464"
+    networks:
+      - otel-example
+    depends_on:
+      - custom_service
+
+  jaeger-ui:
+    container_name: jaeger-ui
+    image: docker.io/jaegertracing/all-in-one
+    ports:
+      # Data port
+      - "4318:4318"
+      # UI Port
+      - "16686:16686"
+    networks:
+      - otel-example
+    depends_on:
+      - otel_collector
+
+  zipkin:
+    container_name: zipkin
+    image: openzipkin/zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - otel-example
+    depends_on:
+      - otel_collector
+
+  prometheus:
+    container_name: prometheus
+    image: ubuntu/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus-config.yaml:/etc/prometheus/prometheus.yml
+    networks:
+      - otel-example
+    depends_on:
+      - otel_collector
+
+networks:
+  otel-example:
+  blameless:
